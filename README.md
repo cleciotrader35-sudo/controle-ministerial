@@ -1,29 +1,17 @@
 # Controle Ministerial - Recepção | Netlify + Supabase
 
-Esta versão foi preparada para usar banco de dados online no Supabase e hospedagem no Netlify.
+Esta versão usa **login real pelo Supabase Auth**.
+Ou seja: qualquer usuário criado em **Authentication > Users** no Supabase consegue entrar usando o próprio email e senha.
 
-## 1. Criar projeto no Supabase
+## 1. Criar as tabelas no Supabase
 
-1. Acesse o Supabase e crie um novo projeto.
+1. Acesse o Supabase e entre no seu projeto.
 2. Vá em **SQL Editor**.
 3. Abra o arquivo `supabase_schema.sql` deste projeto.
-4. Copie todo o conteúdo e clique em **Run**.
+4. Copie todo o conteúdo.
+5. Cole no SQL Editor e clique em **Run**.
 
-## 2. Criar o login inicial
-
-No Supabase:
-
-1. Vá em **Authentication > Users**.
-2. Clique em **Add user**.
-3. Crie este usuário:
-
-- Email: `marcos@controle.local`
-- Password: `marcos321`
-- Marque como confirmado, se essa opção aparecer.
-
-No primeiro acesso pelo sistema, será pedido para criar a senha permanente.
-
-## 3. Configurar o arquivo supabase-config.js
+## 2. Configurar a URL e a chave anon public
 
 No Supabase, vá em:
 
@@ -31,29 +19,46 @@ No Supabase, vá em:
 
 Copie:
 
-- Project URL
-- anon public key
+- **Project URL**
+- **anon public key**
 
 Cole no arquivo `supabase-config.js`:
 
 ```js
-const SUPABASE_URL = "SUA_URL";
+const SUPABASE_URL = "SUA_URL_DO_SUPABASE";
 const SUPABASE_ANON_KEY = "SUA_CHAVE_ANON_PUBLIC";
 ```
 
-## 4. Jogar no GitHub e Netlify
+⚠️ Não use a chave `service_role` no site. Use somente a `anon public`.
+
+## 3. Criar usuários para login
+
+No Supabase, vá em:
+
+**Authentication > Users > Add user**
+
+Crie o usuário com:
+
+- Email: o email que você quiser
+- Password: a senha que você quiser
+- Marque como confirmado, se aparecer essa opção
+
+Depois acesse o site e faça login com o mesmo email e senha cadastrados no Supabase.
+
+## 4. Publicar no GitHub e Netlify
 
 1. Faça upload dos arquivos no GitHub.
 2. No Netlify, clique em **Add new site > Import an existing project**.
 3. Selecione o repositório.
-4. Como é site estático, o publish directory pode ficar como `.`.
+4. Como é site estático, deixe:
+
+```txt
+Build command: vazio
+Publish directory: .
+```
+
 5. Clique em **Deploy**.
-
-## Login inicial
-
-- Usuário: `marcos`
-- Senha: `marcos321`
 
 ## Observação importante
 
-A chave `anon public` do Supabase pode ficar no frontend. A proteção dos dados é feita pelas políticas RLS criadas no arquivo `supabase_schema.sql`.
+Os dados dos membros são protegidos por RLS. Cada usuário logado vê apenas os membros cadastrados por ele.

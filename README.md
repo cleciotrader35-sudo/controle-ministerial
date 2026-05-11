@@ -1,64 +1,33 @@
-# Controle Ministerial - Recepção | Netlify + Supabase
+# Controle Ministerial - Recepção (Netlify + Supabase Auth)
 
-Esta versão usa **login real pelo Supabase Auth**.
-Ou seja: qualquer usuário criado em **Authentication > Users** no Supabase consegue entrar usando o próprio email e senha.
+## Login
+Esta versão usa login real do Supabase Auth. O campo de usuário deve receber o **email completo** criado em:
 
-## 1. Criar as tabelas no Supabase
+`Supabase > Authentication > Users`
 
-1. Acesse o Supabase e entre no seu projeto.
-2. Vá em **SQL Editor**.
-3. Abra o arquivo `supabase_schema.sql` deste projeto.
-4. Copie todo o conteúdo.
-5. Cole no SQL Editor e clique em **Run**.
+Exemplo:
 
-## 2. Configurar a URL e a chave anon public
+- Email: `marcos@casademilagres.com`
+- Senha: a senha definida no Supabase
 
-No Supabase, vá em:
-
-**Project Settings > API**
-
-Copie:
-
-- **Project URL**
-- **anon public key**
-
-Cole no arquivo `supabase-config.js`:
+## Configuração obrigatória
+Abra `supabase-config.js` e coloque os dados do MESMO projeto onde você criou o usuário:
 
 ```js
-const SUPABASE_URL = "SUA_URL_DO_SUPABASE";
+const SUPABASE_URL = "https://SEU-PROJETO.supabase.co";
 const SUPABASE_ANON_KEY = "SUA_CHAVE_ANON_PUBLIC";
 ```
 
-⚠️ Não use a chave `service_role` no site. Use somente a `anon public`.
+Use a chave **anon public**. Não use `service_role`.
 
-## 3. Criar usuários para login
+## Banco de dados
+No Supabase, vá em `SQL Editor > New Query`, cole o conteúdo de `supabase_schema.sql` e clique em `Run`.
 
-No Supabase, vá em:
+## Se o login não entrar
+A nova versão mostra o erro real retornado pelo Supabase. Verifique principalmente:
 
-**Authentication > Users > Add user**
-
-Crie o usuário com:
-
-- Email: o email que você quiser
-- Password: a senha que você quiser
-- Marque como confirmado, se aparecer essa opção
-
-Depois acesse o site e faça login com o mesmo email e senha cadastrados no Supabase.
-
-## 4. Publicar no GitHub e Netlify
-
-1. Faça upload dos arquivos no GitHub.
-2. No Netlify, clique em **Add new site > Import an existing project**.
-3. Selecione o repositório.
-4. Como é site estático, deixe:
-
-```txt
-Build command: vazio
-Publish directory: .
-```
-
-5. Clique em **Deploy**.
-
-## Observação importante
-
-Os dados dos membros são protegidos por RLS. Cada usuário logado vê apenas os membros cadastrados por ele.
+1. Email completo digitado no login.
+2. Senha redefinida no Supabase.
+3. Email confirmado em Authentication > Users.
+4. `supabase-config.js` apontando para o mesmo projeto onde o usuário foi criado.
+5. Arquivo `supabase_schema.sql` executado.

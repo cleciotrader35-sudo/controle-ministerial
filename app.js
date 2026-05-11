@@ -7,11 +7,82 @@ if (isConfigured()) sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 function ageKey(m){ if(!m.data_nascimento) return 9999; const now=new Date(); const b=new Date(m.data_nascimento+'T00:00:00'); let n=new Date(now.getFullYear(),b.getMonth(),b.getDate()); const today=new Date(now.getFullYear(),now.getMonth(),now.getDate()); if(n<today)n.setFullYear(now.getFullYear()+1); return Math.ceil((n-today)/86400000); }
 async function init(){ if(!isConfigured()) return renderConfigWarning(); const {data:{session}} = await sb.auth.getSession(); user = session?.user || null; if(user) await loadProfile(); render(); }
-async function loadProfile(){ let {data,error}=await sb.from('profiles').select('*').eq('id',user.id).maybeSingle(); if(!data){ const username=user.email || 'usuario'; await sb.from('profiles').insert({id:user.id,username:username,needs_change:false}); data={id:user.id,username:username,needs_change:false}; } profile=data; if(profile.needs_change) view='password'; }
+async function loadProfile(){
+  let {data,error}=await sb.from('profiles').select('*').eq('id',user.id).maybeSingle();
+  if(error) throw error;
+  if(!data){
+    const username=user.email || 'usuario';
+    const inserted = await sb.from('profiles').insert({id:user.id,username:username,needs_change:false}).select('*').single();
+    if(inserted.error) throw inserted.error;
+    data=inserted.data;
+  }
+  profile=data;
+  if(profile.needs_change) view='password';
+}
 function renderConfigWarning(){ $('#app').innerHTML=`<div class="login-wrap"><div class="login-card"><div class="logo-min">⚙️</div><h1>Configurar Supabase</h1><div class="setup-warning">Abra o arquivo <b>supabase-config.js</b> e cole a URL e a chave anon public do seu Supabase.</div><p>Depois crie as tabelas usando o arquivo <b>supabase_schema.sql</b>.</p></div></div>`; }
 function render(){ if(!user) return renderLogin(); if(view==='password') return renderChangePass(); renderApp(); }
 function renderLogin(){ $('#app').innerHTML=`<div class="login-wrap"><div class="login-card"><div class="logo-min">⛪</div><h1>Controle Ministerial</h1><div id="msg"></div><div class="field"><label>Email cadastrado no Supabase</label><input id="loginUser" type="email" placeholder="exemplo@email.com" autocomplete="username"></div><div class="field"><label>Senha</label><input id="loginPass" type="password" placeholder="Senha criada no Supabase" autocomplete="current-password"></div><button class="btn primary" onclick="doLogin()">Entrar no sistema</button><p class="small">Use o email e a senha criados em Authentication &gt; Users no Supabase.</p></div></div>`; }
-async function doLogin(){ const email=$('#loginUser').value.trim().toLowerCase(), p=$('#loginPass').value; if(!email || !p) return $('#msg').innerHTML='<div class="error">Informe o email e a senha.</div>'; const {data,error}=await sb.auth.signInWithPassword({email:email,password:p}); if(error) return $('#msg').innerHTML='<div class="error">Email ou senha incorretos. Verifique se esse usuário existe em Authentication &gt; Users no Supabase.</div>'; user=data.user; await loadProfile(); render(); }
+async function doLogin(){
+  const msg = $('#msg');
+  const email = ($('#loginUser')?.value || '').trim().toLowerCase();
+  const p = ($('#loginPass')?.value || '').trim();
+
+  if(!email || !p){
+    msg.innerHTML = '<div class="error">Informe o email e a senha.</div>';
+    return;
+  }
+
+  if(!email.includes('@')){
+    msg.innerHTML = '<div class="error">Digite o email completo criado no Supabase. Exemplo: marcos@casademilagres.com</div>';
+    return;
+  }
+
+  msg.innerHTML = '<div class="info">Verificando login no Supabase...</div>';
+
+  try{
+    const { data, error } = await sb.auth.signInWithPassword({
+      email: email,
+      password: p
+    });
+
+    if(error){
+      console.error('Erro Supabase Auth:', error);
+      let detalhe = error.message || 'Erro desconhecido';
+      let dica = 'Confira se o email e a senha foram criados em Authentication > Users no mesmo projeto Supabase configurado no arquivo supabase-config.js.';
+
+      if(detalhe.toLowerCase().includes('invalid login credentials')){
+        dica = 'Credenciais inválidas. Redefina a senha desse usuário no Supabase e tente novamente.';
+      }
+      if(detalhe.toLowerCase().includes('email not confirmed')){
+        dica = 'O email ainda não foi confirmado. No Supabase, abra Authentication > Users, clique no usuário e confirme o email.';
+      }
+      if(detalhe.toLowerCase().includes('fetch')){
+        dica = 'Não foi possível conectar ao Supabase. Confira a SUPABASE_URL, a chave anon public e a internet.';
+      }
+
+      msg.innerHTML = `<div class="error"><b>Não foi possível entrar.</b><br>${esc(detalhe)}<br><span class="small">${esc(dica)}</span></div>`;
+      return;
+    }
+
+    if(!data?.user){
+      msg.innerHTML = '<div class="error">O Supabase não retornou usuário logado. Confira as configurações do Auth.</div>';
+      return;
+    }
+
+    user = data.user;
+    try{
+      await loadProfile();
+    }catch(profileError){
+      console.error('Login OK, mas houve erro no perfil/tabelas:', profileError);
+      msg.innerHTML = `<div class="error"><b>Login aceito, mas faltam tabelas/permissões.</b><br>${esc(profileError.message || profileError)}<br><span class="small">Execute novamente o arquivo supabase_schema.sql no SQL Editor do Supabase.</span></div>`;
+      return;
+    }
+    render();
+  }catch(e){
+    console.error('Erro inesperado no login:', e);
+    msg.innerHTML = `<div class="error"><b>Erro inesperado no login.</b><br>${esc(e.message || e)}</div>`;
+  }
+}
 async function logout(){ await sb.auth.signOut(); user=null; profile=null; view='dashboard'; render(); }
 function renderChangePass(){ $('#app').innerHTML=`<div class="login-wrap"><div class="login-card"><div class="logo-min">🔐</div><h1>Definir senha permanente</h1><p>Crie a senha definitiva para acessar de qualquer lugar.</p><div id="msg"></div><div class="field"><label>Nova senha</label><input id="p1" type="password"></div><div class="field"><label>Confirmar senha</label><input id="p2" type="password"></div><button class="btn primary" onclick="savePass()">Salvar senha</button></div></div>`; }
 async function savePass(){ const p1=$('#p1').value,p2=$('#p2').value; if(p1.length<6||p1!==p2) return $('#msg').innerHTML='<div class="error">As senhas precisam ser iguais e ter no mínimo 6 caracteres.</div>'; const {error}=await sb.auth.updateUser({password:p1}); if(error) return $('#msg').innerHTML='<div class="error">Erro ao alterar senha.</div>'; await sb.from('profiles').update({needs_change:false}).eq('id',user.id); profile.needs_change=false; view='dashboard'; render(); }
